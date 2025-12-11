@@ -1,0 +1,64 @@
+﻿@page "/"
+@* @Clients *@
+@inject GamesClient Client
+@using GameStore.Frontend.Clients
+@using GameStore.Frontend.Models
+@attribute [StreamRendering]
+
+<PageTitle>Game Catalog</PageTitle>
+
+<div class="mt-2 mb-2">
+    <a class="btn btn-primary" role="button" href="/editgame">New Game</a>
+</div>
+
+<table class="table table-striped table-bordered table-hover mt-3">
+    <thead class="table-dark">
+        <th>Id</th>
+        <th>Title</th>
+        <th>Genre</th>
+        <th>Price</th>
+        <th>Release Date</th>
+        <th>Edit</th>
+    </thead>
+    <tbody>
+        @foreach (var game in games!)
+        {
+            <tr>
+                <td>@game.Id</td>
+                <td>@game.Title</td>
+                <td>@game.Genre</td>
+                <td class="text-end">@game.Price.ToString("c2")</td>
+                <td>@game.ReleaseDate.ToShortDateString()</td>
+                <td>
+                    <div class="d-flex">
+                        <a class="btn me-2 btn-primary" role="button" href="@GameUrl(game.Id)" title="Edit @game.Title">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="@GetDeleteModalId(game)"
+                            title="Delete @game.Title">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <DeleteGame Game="@game" />
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    @* private GamesClient client = new(); *@
+    private GameSummary[]? games;
+
+    protected override void OnInitialized()
+    {
+        games = Client.GetGames();
+    }
+
+    private static string GameUrl(int id) => $"/editgame/{id}";
+
+    private string GetDeleteModalId(GameSummary game)
+    {
+        return $"#{DeleteGame.GameModalId(game)}";
+    }
+}
