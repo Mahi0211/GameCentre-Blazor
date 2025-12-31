@@ -23,6 +23,13 @@
     [Parameter]
     public GameSummary? Game { get; set; }
 
+    @* [Parameter]
+    public List<GameSummary> Games { get; set; } = new(); *@
+
+    [Parameter]
+    public EventCallback OnDeleted { get; set; }
+
+
     private string title = string.Empty;
 
     protected override void OnParametersSet()
@@ -36,9 +43,9 @@
         return $"deleteGameModal-{game.Id}";
     }
 
-    private void Confirm()
+    private async Task Confirm()
     {
-        Client.DeleteGame(Game!.Id);
-        NavigationManager.Refresh();
+        await Client.DeleteGameAsync(Game!.Id);
+        await OnDeleted.InvokeAsync();
     }
 }

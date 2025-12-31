@@ -1,66 +1,84 @@
-using System;
+using System.Text.Json;
+using Microsoft.JSInterop;
 using GameStore.Frontend.Models;
 
 namespace GameStore.Frontend.Clients;
 
-public class GamesClient(HttpClient httpClient)
+public class GamesClient
 {
-    private readonly List<GameSummary> games = [
-    new(){
-        Id = 1,
-        Title = "Adventure Quest",
-        Genre = "Adventure",
-        Price = 29.99M,
-        ReleaseDate = new DateOnly(2023, 5, 15)
-    },
-    new(){
-        Id = 2,
-        Title = "Racing Thunder",
-        Genre = "Racing",
-        Price = 49.99M,
-        ReleaseDate = new DateOnly(2022, 11, 20)
-    },
-    new(){
-        Id = 3,
-        Title = "Mystery Manor",
-        Genre = "Puzzle",
-        Price = 19.99M,
-        ReleaseDate = new DateOnly(2024, 2, 10)
-    }
-    ];
+    private const string StorageKey = "games";
+    private readonly IJSRuntime js;
 
-    private readonly Genre[] genres = new GenresClient(httpClient).GetGenres();
+    private List<GameSummary> games = [];
+
+    public GamesClient(IJSRuntime js)
+    {
+        this.js = js;
+    }
+
+    public async Task InitializeAsync()
+    {
+        var json = await js.InvokeAsync<string>(
+            "gameStorage.get", StorageKey);
+
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            games = JsonSerializer.Deserialize<List<GameSummary>>(json) ?? [];
+        }
+        else
+        {
+            games =
+            [
+                new()
+                {
+                    Id = 1,
+                    Title = "Adventure Quest",
+                    Genre = "Adventure",
+                    Price = 29.99M,
+                    ReleaseDate = new DateOnly(2023, 5, 15)
+                }
+            ];
+
+            await SaveAsync();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var json = JsonSerializer.Serialize(games);
+        await js.InvokeVoidAsync("gameStorage.set", StorageKey, json);
+    }
 
     public GameSummary[] GetGames() => [.. games];
 
-    public void AddGame(GameDetails game)
+    public async Task AddGameAsync(GameDetails game, Genre[] genres)
     {
-        Genre genre = GetGenreById(game.GenreId);
+        var genre = genres.Single(g => g.Id == int.Parse(game.GenreId!));
 
-        var gameSummary = new GameSummary
+        games.Add(new GameSummary
         {
-            Id = games.Count + 1,
+            Id = games.Any() ? games.Max(g => g.Id) + 1 : 1,
             Title = game.Title,
             Genre = genre.Name,
             Price = game.Price,
             ReleaseDate = game.ReleaseDate
-        };
+        });
 
-        games.Add(gameSummary);
+        await SaveAsync();
     }
 
-    private Genre GetGenreById(string? id)
+    public Task<GameDetails?> GetGameAsync(int id, Genre[] genres)
     {
-        return genres.Single(genre => genre.Id == int.Parse(id ?? "0"));
-    }
+        var game = games.SingleOrDefault(g => g.Id == id);
 
-    public GameDetails GetGame(int id)
-    {
-        GameSummary game = GetGameSummaryById(id);
+        if (game is null)
+            return Task.FromResult<GameDetails?>(null);
 
-        var genre = genres.Single(genre => string.Equals(genre.Name, game.Genre, StringComparison.OrdinalIgnoreCase));
+        var genre = genres.Single(
+            g => string.Equals(g.Name, game.Genre, StringComparison.OrdinalIgnoreCase)
+        );
 
-        return new GameDetails
+        var details = new GameDetails
         {
             Id = game.Id,
             Title = game.Title,
@@ -68,29 +86,26 @@ public class GamesClient(HttpClient httpClient)
             Price = game.Price,
             ReleaseDate = game.ReleaseDate
         };
+
+        return Task.FromResult<GameDetails?>(details);
     }
 
-    public void UpdateGame(GameDetails updatedGame)
+    public async Task UpdateGameAsync(GameDetails game, Genre[] genres)
     {
-        var genre = GetGenreById(updatedGame.GenreId);
-        GameSummary existingGame = GetGameSummaryById(updatedGame.Id);
+        var genre = genres.Single(g => g.Id == int.Parse(game.GenreId!));
+        var existing = games.Single(g => g.Id == game.Id);
 
-        existingGame.Title = updatedGame.Title;
-        existingGame.Genre = genre.Name;
-        existingGame.Price = updatedGame.Price;
-        existingGame.ReleaseDate = updatedGame.ReleaseDate;
+        existing.Title = game.Title;
+        existing.Genre = genre.Name;
+        existing.Price = game.Price;
+        existing.ReleaseDate = game.ReleaseDate;
+
+        await SaveAsync();
     }
 
-    public void DeleteGame(int id)
+    public async Task DeleteGameAsync(int id)
     {
-        GameSummary game = GetGameSummaryById(id);
-        games.Remove(game);
-    }
-
-    private GameSummary GetGameSummaryById(int id)
-    {
-        GameSummary? game = games.Find(game => game.Id == id);
-        ArgumentNullException.ThrowIfNull(game);
-        return game;
+        games.RemoveAll(g => g.Id == id);
+        await SaveAsync();
     }
 }

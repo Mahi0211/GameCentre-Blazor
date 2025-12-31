@@ -4,15 +4,16 @@ using GameStore.Frontend.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddRazorComponents()
+       .AddInteractiveServerComponents();
 
-var gameStoreApiUrl = builder.Configuration["GameStoreApiUrl"] ?? throw new Exception("GameStoreApiUrl is not configured.");
+// var gameStoreApiUrl = builder.Configuration["GameStoreApiUrl"] ?? throw new Exception("GameStoreApiUrl is not configured.");
 
-builder.Services.AddHttpClient<GamesClient>(client => client.BaseAddress = new Uri(gameStoreApiUrl));
-builder.Services.AddHttpClient<GenresClient>(client => client.BaseAddress = new Uri(gameStoreApiUrl));
+// builder.Services.AddHttpClient<GamesClient>(client => client.BaseAddress = new Uri(gameStoreApiUrl));
+// builder.Services.AddHttpClient<GenresClient>(client => client.BaseAddress = new Uri(gameStoreApiUrl));
 
-// builder.Services.AddSingleton<GamesClient>();
-// builder.Services.AddSingleton<GenresClient>();
+builder.Services.AddScoped<GamesClient>();
+builder.Services.AddScoped<GenresClient>();
 
 var app = builder.Build();
 
